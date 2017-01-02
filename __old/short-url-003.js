@@ -1,8 +1,10 @@
 // vim: set tabstop=4 softtabstop=4 shiftwidth=4 expandtab:
 
-
 // THAT FIND LARGEST SHORT URL QUERY FAILS IF STARTING FROM A BLANK DB.
 // NEED TO RE-WRITE THAT PART (AND PREFERABLY WITHOUT SEED DATA).
+
+// set to true to enable console logging. false to disable.
+var DEBUG = true;
 
 // load needed packages
 var express = require('express');
@@ -12,77 +14,79 @@ var validURL = require('valid-url');
 // use environment-defined port or 3000
 var port = process.env.PORT || 3000;
 
+// get selfURL from process.env
+var selfURL = process.env.APP_URL;
+
 // create express application
 var app = express();
+
+// define where static files are kept (in same dir as this file)
+// needed for res.sendFile
+app.use(express.static(__dirname));
 
 
 // db START
 
-// connect to urldb mongo db
-// CHANGE TO URLDB!
-mongoose.connect('mongodb://localhost:27017/urldb2');
+// config mongoose to use native ES6 promises, rather than its own mpromise (soon deprecated)
+//mongoose.Promise = global.Promise;
+
+mongoose.connect('mongodb://localhost:27017/urldb');
 
 // define urldb schema
-var urlSchema = new mongoose.Schema({
-    short_url: Number,
-    original_url: String
+var urlSchema = new mongoose.Schema({ 
+    original_url: String,
+    short_url: Number
 });
 
 var url = mongoose.model('url', urlSchema);
 
 // db END
 
-// seed data START
-
-
-var seedURLObject = new url({
-    short_url: 1,
-    original_url: "http://www.google.com/"
-});
-
-// and save it in db
-seedURLObject.save(function(err) {
-    if (err) {
-        res.status(500).send("error: " + err);
-    } else {
-        res.send("new url added to db.\nobject: " + newURLObject);
-    }
-});
-
-// seed data END
 
 // routes START
 
 // no input_url
 app.get('/', function (req,res) {
-    res.send('not a long or short url. try again'); 
+    DEBUG && console.log('got: nothing');
+//    res.send('not a long or short url. try again'); 
+    res.sendFile('index.html');
+    DEBUG && console.log('sent: index.html');
 });
 
 // get existing short url
 app.get('/:input_id', function (req,res) {
     // make input_url into a base-10 int
     var shortURL = parseInt(req.params.input_id,10);
+    DEBUG && console.log('got: short_url ' + shortURL);
 
     // if short_url is not-a-number,
     if (Number.isNaN(shortURL)) {
+        DEBUG && console.log('short_url ' + shortURL + ' is not valid');
         // return error
-        res.status(404).send('not a valid short url');
+        //res.status(404).send('not a valid short url');
+        res.status(500).send('{ "error": "' + req.params.input_id + ' is not a valid short_url" }');
+        DEBUG && console.log('sent: invalid short_url error');
     // otherwise,
     } else {
+        DEBUG && console.log('short_url ' + shortURL + ' is valid');
         // declare mongo query to find that short_url
-        var shortURLQuery = url.findOne({"short_url": shortURL});
+        var shortURLQuery = url.findOne({"short_url": shortURL}).maxTime(10000);
 
+        DEBUG && console.log('searching for short_url in db...');
         // try the query with a .then() (not a promise, but similar enough function for what we need).
         shortURLQuery.then(function(docShort) {
             // if document found,
             if (docShort) {
                 // log to console that found and redirect to original_url.
-                console.log("short url " + docShort.short_url + " found. redirecting to " + docShort.original_url);
+                DEBUG && console.log("short url " + selfURL + "/" + docShort.short_url + " found. redirecting to " + docShort.original_url);
                 res.redirect(docShort.original_url);
             // if document not found,
             } else {
+                DEBUG && console.log('short_url ' + shortURL + ' not found');
                 // return error stating that.
-                res.status(404).send('short url not found');
+                //res.status(404).send('short url not found');
+                res.status(500).send('{ "error": "short_url ' + shortURL + ' not found" }');
+                DEBUG && console.log('sent: short_url not found error');
             }
         });
     }
@@ -92,62 +96,96 @@ app.get('/:input_id', function (req,res) {
 app.get('/new/:input_url*', function (req,res) {
 //    var newLongURL = req.params.input_url;
     var newLongURL = req.url.slice(5);  // slice first 5 char ('/new/') from input_url
-    console.log('long input_url: ' + newLongURL);
+    DEBUG && console.log('got: long input_url ' + newLongURL);
 
     // if newLongURL is a valid URL
     if (validURL.isUri(newLongURL)) {
+        DEBUG && console.log('long input_url ' + newLongURL + ' is valid');
         // declare mongo query to find if that url already exists in db
-        var longURLQuery = url.findOne({"original_url": newLongURL});
+        var longURLQuery = url.findOne({"original_url": newLongURL}).maxTime(10000);
 
+        DEBUG && console.log('searching for long_url in db...');
         // try the query (with not a promise but similar -- see above).
         longURLQuery.then(function(docLong) {
             // if document found (new url already exists in db),
             if (docLong) {
-                res.status(500).send("new url already in db. its short_url is " + docLong.short_url);
+                DEBUG && console.log('found new url in db. sent error.');
+                //res.status(500).send("new url already in db. its short_url is " + docLong.short_url);
+                res.status(500).send('{ "error": "new url is alread in db. its short_url is ' + docLong.short_url + '" }');
             // if document not found (new url not yet in db),
             } else {
+                DEBUG && console.log('new url not found in db.');
                 // declare mongo query to find largest short_url currently in db
-                var largestShortURLQuery = url.find().sort({"short_url": -1}).limit(1);
+                var largestShortURLQuery = url.find().sort({"short_url": -1}).limit(1).maxTime(10000);
 
+                DEBUG && console.log('finding largest short_url in db...');
                 // and try the query
-                largestSHortURLQuery.then(function(docLargestShort) {
+                largestShortURLQuery.then(function(docLargestShort) {
                     // if document found (found largest short_url),
-                    if (docLargest) {
+                    if (docLargestShort) {
+                        DEBUG && console.log('found largest short_url');
+    
+                        var largestShortURL;
+
+                        //if (docLargestShort[0].short_url) {
+                        if (docLargestShort.length) {
+                            DEBUG && console.log(docLargestShort);
+                            DEBUG && console.log('and setting largestShortURL to value of docLargestShort[0].short_url');
+                            largestShortURL = docLargestShort[0].short_url;
+                            DEBUG && console.log('largestShortURL: ' + largestShortURL);
+                        } else {
+                            DEBUG && console.log('and its undefined. setting it to zero.');
+                            // just make it 0
+                            largestShortURL = 0;
+                        }
+
                         // take (found) largest current short_url
-                        var largestShortURL = docLargest[0].short_url;
-                        // and make new short_url 1 larger
-                        var newShortURL = largestShortURL + 1;        
+                        //var largestShortURL = docLargestShort[0].short_url;
+
+                        // and make newShortURL 1 greater than largest current short_url
+                        var newShortURL = largestShortURL + 1;
+                        DEBUG && console.log('new largest short_url is: ' + newShortURL);
 
                         // declare new new url object to insert into db
                         var newURLObject = new url({
                             short_url: newShortURL,
                             original_url: newLongURL
                         });
+                        DEBUG && console.log('created new object to insert into db: ' + newURLObject);
 
                         // and save it in db
                         newURLObject.save(function(err) {
                             if (err) {
-                                res.status(500).send("error: " + err);
+                                DEBUG && console.log('could not save new object into db.');
+                                //res.status(500).send("error: " + err);
+                                res.status(500).send('{ "error": "' +  err + '" }');
                             } else {
-                                res.send("new url added to db.\nobject: " + newURLObject);
+                                DEBUG && console.log('saved new object into db.');
+                                //res.send("new url added to db.\nobject: " + newURLObject);
+                                res.send(newURLObject);
+                                DEBUG && console.log('sent response to browser.');
                             }
                         });
                     // or if some error
                     } else {
-                        res.status(500).send("error: " + err);
+                        DEBUG && console.log('some other error: ' + err);
+                        //res.status(500).send("error: " + err);
+                        res.status(500).send('{ "error": "' + err + '" }');
                     }
                 });
             }
         }); 
     // if newLongURL is not valid
     } else {
-        res.status(500).send("invalid url: " + newLongURL);
+        DEBUG && console.log('new input_url ' + newLongURL + 'is not valid');
+        //res.status(500).send("invalid url: " + newLongURL);
+        res.status(500).send('{ "error": "URL ' + newLongURL + ' is not valid" }');
     }
+
 });
 
 // routes END 
 
-
 // start server
 app.listen(port);
-console.log('server started on port ' + port);
+DEBUG && console.log('server started on port ' + port);

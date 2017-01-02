@@ -1,0 +1,37 @@
+<html>
+    <head>
+        <title>URL Shortener Microservice</title>
+        <style>
+            .indent-with-line {
+                border-left: think solid #000000;
+            }
+            .example-text {
+                color: #ff0000;
+                background-color: #ff9999;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>API Basejump: URL Shortener</h1>
+        <div class='indent-with-line'>
+            <br>
+            User stories:
+            <li> I can pass a URL as a parameter and I will receive a shortened URL in the JSON response.
+            <li> When I visit that shortened URL, it will redirect me to my original link.
+            <br>
+        </div>
+        <br>
+        <h2>Example Creation Usage:</h2>
+        <a class='example-text' href="http://shorturl.pds.id.au/new/https://www.google.com/">http://shorturl.pds.id.au/new/https://www.google.com/</a><br>
+        <a class='example-text' href="http://shorturl.pds.id.au/new/http://www.freecodecamp.com/news/">http://shorturl.pds.id.au/new/http://www.freecodecamp.com/news/</a><br>
+        <br>
+        <h2>Example Creation Output</h2>
+        <span class='example-text'>{ "original_url": "http://www.freecodecamp.com/news/", "short_url": "http://shorturl.pds.id.au/4" }</span>
+        <br>
+        <h2>Usage:</h2>
+        <span class='example-text'>http://shorturl.pds.id.au/4</span>
+        <br>
+        <h2>Will redirect to:</h2>
+        <span class='example-text'>http://www.freecodecamp.com/news/</span>
+    </body>
+</html>
