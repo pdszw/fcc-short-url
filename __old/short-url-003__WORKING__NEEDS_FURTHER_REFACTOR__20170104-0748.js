@@ -1,5 +1,8 @@
 // vim: set tabstop=4 softtabstop=4 shiftwidth=4 expandtab:
 
+// THAT FIND LARGEST SHORT URL QUERY FAILS IF STARTING FROM A BLANK DB.
+// NEED TO RE-WRITE THAT PART (AND PREFERABLY WITHOUT SEED DATA).
+
 // set to true to enable console logging. false to disable.
 var DEBUG = true;
 
@@ -12,7 +15,7 @@ var validURL = require('valid-url');
 var port = process.env.PORT || 3000;
 
 // get selfURL from process.env
-var selfURL = process.env.APP_URL || 'localhost';
+var selfURL = process.env.APP_URL;
 
 // create express application
 var app = express();
@@ -45,6 +48,7 @@ var url = mongoose.model('url', urlSchema);
 // no input_url
 app.get('/', function (req,res) {
     DEBUG && console.log('got: nothing');
+//    res.send('not a long or short url. try again'); 
     res.sendFile('index.html');
     DEBUG && console.log('sent: index.html');
 });
@@ -59,6 +63,7 @@ app.get('/:input_id', function (req,res) {
     if (Number.isNaN(shortURL)) {
         DEBUG && console.log('short_url ' + shortURL + ' is not valid');
         // return error
+        //res.status(404).send('not a valid short url');
         res.status(500).send('{ "error": "' + req.params.input_id + ' is not a valid short_url" }');
         DEBUG && console.log('sent: invalid short_url error');
     // otherwise,
@@ -79,6 +84,7 @@ app.get('/:input_id', function (req,res) {
             } else {
                 DEBUG && console.log('short_url ' + shortURL + ' not found');
                 // return error stating that.
+                //res.status(404).send('short url not found');
                 res.status(500).send('{ "error": "short_url ' + shortURL + ' not found" }');
                 DEBUG && console.log('sent: short_url not found error');
             }
@@ -88,6 +94,7 @@ app.get('/:input_id', function (req,res) {
 
 // add new long url
 app.get('/new/:input_url*', function (req,res) {
+//    var newLongURL = req.params.input_url;
     var newLongURL = req.url.slice(5);  // slice first 5 char ('/new/') from input_url
     DEBUG && console.log('got: long input_url ' + newLongURL);
 
@@ -103,6 +110,7 @@ app.get('/new/:input_url*', function (req,res) {
             // if document found (new url already exists in db),
             if (docLong) {
                 DEBUG && console.log('found new url in db. sent error.');
+                //res.status(500).send("new url already in db. its short_url is " + docLong.short_url);
                 res.status(500).send('{ "error": "new url is alread in db. its short_url is ' + docLong.short_url + '" }');
             // if document not found (new url not yet in db),
             } else {
@@ -131,6 +139,9 @@ app.get('/new/:input_url*', function (req,res) {
                             largestShortURL = 0;
                         }
 
+                        // take (found) largest current short_url
+                        //var largestShortURL = docLargestShort[0].short_url;
+
                         // and make newShortURL 1 greater than largest current short_url
                         var newShortURL = largestShortURL + 1;
                         DEBUG && console.log('new largest short_url is: ' + newShortURL);
@@ -146,17 +157,19 @@ app.get('/new/:input_url*', function (req,res) {
                         newURLObject.save(function(err) {
                             if (err) {
                                 DEBUG && console.log('could not save new object into db.');
+                                //res.status(500).send("error: " + err);
                                 res.status(500).send('{ "error": "' +  err + '" }');
                             } else {
                                 DEBUG && console.log('saved new object into db.');
-                                //res.send(newURLObject);
-                                res.json({ original_url: newURLObject.original_url, short_url: newURLObject.short_url });
+                                //res.send("new url added to db.\nobject: " + newURLObject);
+                                res.send(newURLObject);
                                 DEBUG && console.log('sent response to browser.');
                             }
                         });
                     // or if some error
                     } else {
                         DEBUG && console.log('some other error: ' + err);
+                        //res.status(500).send("error: " + err);
                         res.status(500).send('{ "error": "' + err + '" }');
                     }
                 });
@@ -165,6 +178,7 @@ app.get('/new/:input_url*', function (req,res) {
     // if newLongURL is not valid
     } else {
         DEBUG && console.log('new input_url ' + newLongURL + 'is not valid');
+        //res.status(500).send("invalid url: " + newLongURL);
         res.status(500).send('{ "error": "URL ' + newLongURL + ' is not valid" }');
     }
 
