@@ -3,6 +3,9 @@
 // set to true to enable console logging. false to disable.
 var DEBUG = true;
 
+// needed for those process.env variables
+require('dotenv').config();
+
 // load needed packages
 var express = require('express');
 var mongoose = require('mongoose');
@@ -12,7 +15,7 @@ var validURL = require('valid-url');
 var port = process.env.PORT || 3000;
 
 // get selfURL from process.env
-var selfURL = process.env.APP_URL || 'http://localhost:3000/';
+var selfURL = process.env.APP_URL + ':' + port + '/' || 'http://localhost:' + port + '/';
 
 // create express application
 var app = express();
