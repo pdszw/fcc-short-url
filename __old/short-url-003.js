@@ -12,7 +12,7 @@ var validURL = require('valid-url');
 var port = process.env.PORT || 3000;
 
 // get selfURL from process.env
-var selfURL = process.env.APP_URL || 'localhost';
+var selfURL = process.env.APP_URL || 'http://localhost:3000/';
 
 // create express application
 var app = express();
@@ -102,8 +102,8 @@ app.get('/new/:input_url*', function (req,res) {
         longURLQuery.then(function(docLong) {
             // if document found (new url already exists in db),
             if (docLong) {
-                DEBUG && console.log('found new url in db. sent error.');
-                res.status(500).send('{ "error": "new url is alread in db. its short_url is ' + docLong.short_url + '" }');
+                DEBUG && console.log('found new url in db. sent json response.');
+                res.status(500).json({ "original_url": docLong.original_url, "short_url": selfURL + docLong.short_url });
             // if document not found (new url not yet in db),
             } else {
                 DEBUG && console.log('new url not found in db.');
@@ -150,7 +150,7 @@ app.get('/new/:input_url*', function (req,res) {
                             } else {
                                 DEBUG && console.log('saved new object into db.');
                                 //res.send(newURLObject);
-                                res.json({ original_url: newURLObject.original_url, short_url: newURLObject.short_url });
+                                res.json({ "original_url": newURLObject.original_url, "short_url": selfURL + newURLObject.short_url });
                                 DEBUG && console.log('sent response to browser.');
                             }
                         });
